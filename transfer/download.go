@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -13,12 +13,13 @@ import (
 
 const baseApi string = "https://wetransfer.com/api/v4"
 
-var urlRegex = regexp.MustCompile(".+/downloads/([^/]+)(/([^/]+))?/([^/]+)")
+var urlRegex = regexp.MustCompile(".+/downloads/([^/]+)(/([^/]+))?/([^/?&]+)")
 
 type headers map[string]string
 
 type requestData struct {
 	SecurityHash string `json:"security_hash"`
+	Password     string `json:"password,omitempty"`
 	RecipientId  string `json:"recipient_id,omitempty"`
 	Intent       string `json:"intent"`
 }
@@ -35,7 +36,7 @@ type DlResponse struct {
 	DlFilename string `json:"dl_filename"`
 }
 
-func GetDlResponse(URL string) (resp *http.Response, r DlResponse, err error) {
+func GetDlResponse(URL string, password string) (resp *http.Response, r DlResponse, err error) {
 	client := &http.Client{}
 	req, err := createRequest("GET", URL, nil, nil)
 	if err != nil {
@@ -49,6 +50,7 @@ func GetDlResponse(URL string) (resp *http.Response, r DlResponse, err error) {
 	if err != nil {
 		return
 	}
+	data.reqData.Password = password
 	link, err := getDownloadLink(client, data)
 	if err != nil {
 		return
@@ -92,7 +94,7 @@ func getDownloadLink(client *http.Client, data transferData) (URL string, err er
 	if err != nil {
 		return
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
@@ -116,7 +118,7 @@ func getDownloadLink(client *http.Client, data transferData) (URL string, err er
 
 func getTransferData(resp *http.Response) (out transferData, err error) {
 	defer resp.Body.Close()
-	_, err = ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
